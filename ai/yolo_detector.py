@@ -26,7 +26,7 @@ class YoloDetector:
         # 11: stop sign
         self.target_classes = [0, 1, 2, 3, 5, 7, 9, 11]
 
-    def process_frame(self, frame):
+    def process_frame(self, frame, emergency_active=False):
         """
         Runs YOLO inference on a single frame.
         Returns the annotated frame and a summary of detected objects.
@@ -56,6 +56,10 @@ class YoloDetector:
                 detected_summary["person"] += 1
             elif cls_id in [1, 2, 3, 5, 7]:
                 detected_summary["vehicle"] += 1
+                if emergency_active:
+                    x1, y1, x2, y2 = box.xyxy[0]
+                    cv2.putText(annotated_frame, "V2V ALERT RECEIVED", (int(x1), max(0, int(y1)-15)), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             elif cls_id == 9:
                 detected_summary["traffic_light"] += 1
             elif cls_id == 11:

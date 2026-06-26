@@ -40,8 +40,10 @@ class DriverMonitor:
         # -----------------------------
         # Thresholds & State Variables
         # -----------------------------
-        self.EAR_THRESHOLD = 0.22
+        self.EAR_THRESHOLD = 0.20
         self.MAR_THRESHOLD = 0.60
+        
+        self.ear_history = []
         
         self.driver_state = "NORMAL"
         self.fatigue_score = 0
@@ -170,6 +172,11 @@ class DriverMonitor:
             right_ear = self.eye_aspect_ratio(self.RIGHT_EYE, face.landmark, w, h)
             ear = (left_ear + right_ear) / 2.0
             
+            self.ear_history.append(ear)
+            if len(self.ear_history) > 5:
+                self.ear_history.pop(0)
+            smoothed_ear = sum(self.ear_history) / len(self.ear_history)
+            
             mar = self.mouth_aspect_ratio(face.landmark, w, h)
             self.head_pose_status = self.estimate_head_pose(face, w, h)
             
@@ -192,7 +199,7 @@ class DriverMonitor:
                 distracted_duration = 0
 
             # --- 3. Eye Closure / Blink Logic ---
-            if ear < self.EAR_THRESHOLD:
+            if smoothed_ear < self.EAR_THRESHOLD:
                 if self.closed_start_time is None:
                     self.closed_start_time = current_time
                 
@@ -239,7 +246,7 @@ class DriverMonitor:
             # --- HUD Overlay ---
             metrics = [
                 (f"FPS: {int(fps)}", (w - 150, 40), (255,255,255)),
-                (f"EAR: {ear:.2f}", (20, 40), (255,255,255)),
+                (f"EAR: {smoothed_ear:.2f}", (20, 40), (255,255,255)),
                 (f"MAR: {mar:.2f}", (20, 80), (255,255,0)),
                 (f"Blinks: {self.blink_counter}", (20, 120), (255,255,255)),
                 (f"Yawns: {self.yawn_counter}", (20, 160), (255,255,0)),

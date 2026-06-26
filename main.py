@@ -28,6 +28,30 @@ def process_carla_camera(image):
     img = img[:, :, :3] # Remove alpha channel
     vehicle_frame = img.copy()
 
+def render_dashboard_panel(vehicle_state):
+    panel = np.zeros((300, 400, 3), dtype=np.uint8)
+    
+    cv2.putText(panel, "SYSTEM DASHBOARD", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 210, 255), 2)
+    cv2.line(panel, (10, 40), (390, 40), (50, 50, 50), 2)
+    
+    # Status coloring
+    state_color = (0, 255, 0) if vehicle_state["driver_status"] == "NORMAL" else (0, 0, 255)
+    
+    cv2.putText(panel, f"Driver: {vehicle_state['driver_status']}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, state_color, 2)
+    cv2.putText(panel, f"Speed: {vehicle_state['speed']} km/h", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+    cv2.putText(panel, f"GPS: {vehicle_state['gps']}", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+    
+    cv2.putText(panel, "EMERGENCY ALERTS", (10, 170), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 150, 255), 1)
+    
+    alert_y = 200
+    for key, label in [("hospital_alert", "Hospital"), ("police_alert", "Police"), ("guardian_alert", "Guardian"), ("v2v_alert", "V2V Comm")]:
+        status = vehicle_state.get(key, "Pending")
+        color = (0, 255, 0) if status == "Sent" else (0, 150, 255)
+        cv2.putText(panel, f"{label}: {status}", (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        alert_y += 25
+        
+    return panel
+
 def main():
     print("="*50)
     print("AI EMERGENCY CO-PILOT INITIALIZATION")
@@ -108,7 +132,8 @@ def main():
     camera_bp.set_attribute('fov', '90')
     camera_bp.set_attribute('sensor_tick', '0.05') # 20 FPS to save resources
     
-    camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+    # Third-person camera view behind the car
+    camera_transform = carla.Transform(carla.Location(x=-6.5, z=3.2), carla.Rotation(pitch=-15))
     camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
     camera.listen(lambda image: process_carla_camera(image))
     print("[SYSTEM] Front RGB Camera attached and streaming!")
@@ -152,32 +177,36 @@ def main():
 
             # --- PROCESS WEBCAM (DRIVER MONITOR) ---
             webcam_success, webcam_frame = webcam.read()
+            driver_frame_disp = np.zeros((300, 400, 3), dtype=np.uint8)
             if webcam_success:
                 webcam_frame = cv2.flip(webcam_frame, 1)
                 driver_frame, driver_state = driver_monitor.process_frame(webcam_frame)
-                cv2.imshow("Smart Vehicle - Driver Monitor", driver_frame)
-                
                 vehicle_state["driver_status"] = driver_state
-                
-                # Feed state to Decision Engine
                 emergency_manager.evaluate_driver_state(driver_state)
+                driver_frame_disp = cv2.resize(driver_frame, (400, 300))
             
             # --- PROCESS CARLA CAMERA (YOLO ENVIRONMENT) ---
             global vehicle_frame
+            env_frame_disp = np.zeros((600, 800, 3), dtype=np.uint8)
             if vehicle_frame is not None:
                 if yolo_detector:
-                    env_frame, detected = yolo_detector.process_frame(vehicle_frame)
+                    env_frame, detected = yolo_detector.process_frame(vehicle_frame, vehicle_state.get("emergency_active", False))
                 else:
                     env_frame = vehicle_frame
                     
-                # Get vehicle speed and overlay it
                 speed = vehicle_controller.get_speed()
                 vehicle_state["speed"] = int(speed)
                 h, w, _ = env_frame.shape
                 cv2.putText(env_frame, f"Speed: {int(speed)} km/h", (w - 200, 40), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                env_frame_disp = cv2.resize(env_frame, (800, 600))
                             
-                cv2.imshow("Smart Vehicle - Environment View", env_frame)
+            # --- RENDER UNIFIED CENTRAL CONSOLE ---
+            dash_panel = render_dashboard_panel(vehicle_state)
+            right_col = np.vstack((driver_frame_disp, dash_panel))
+            final_ui = np.hstack((env_frame_disp, right_col))
+            
+            cv2.imshow("GuardianDrive Central Console", final_ui)
 
             key = cv2.waitKey(1) & 0xFF
             

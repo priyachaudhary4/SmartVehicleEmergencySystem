@@ -73,6 +73,33 @@ class EmergencyManager:
             vehicle_state["guardian_alert"] = "Sent"
             vehicle_state["v2v_alert"] = "Sent"
             
+            # Spawn Emergency Responder (Ambulance)
+            world = self.vehicle_controller.world
+            ego_vehicle = self.vehicle_controller.vehicle
+            
+            if ego_vehicle and world:
+                print("[SCENARIO] Spawning Ambulance Persona...")
+                import carla
+                transform = ego_vehicle.get_transform()
+                forward_vector = transform.get_forward_vector()
+                # Spawn 12 meters behind the ego vehicle
+                spawn_location = transform.location - forward_vector * 12
+                # Ensure it's slightly above ground to prevent collision with map
+                spawn_location.z += 1.0 
+                spawn_transform = carla.Transform(spawn_location, transform.rotation)
+                
+                blueprint_library = world.get_blueprint_library()
+                ambulance_bps = blueprint_library.filter('vehicle.ford.ambulance')
+                if ambulance_bps:
+                    ambulance_bp = ambulance_bps[0]
+                    ambulance = world.try_spawn_actor(ambulance_bp, spawn_transform)
+                    if ambulance:
+                        print("[SCENARIO] Ambulance arrived on scene!")
+                        # Turn on flashing emergency lights
+                        ambulance.set_light_state(carla.VehicleLightState(carla.VehicleLightState.Special1 | carla.VehicleLightState.Special2 | carla.VehicleLightState.Position))
+                    else:
+                        print("[SCENARIO] Failed to spawn Ambulance (collision at spawn point).")
+            
             print("[DECISION ENGINE] Emergency Protocol Complete. Waiting for responders.")
 
         # Run the protocol in a daemon thread so it doesn't freeze the camera feed
