@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuardianDrive Rescue Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
+        h1 { color: #00d2ff; text-align: center; font-size: 2.5em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: auto; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid #00d2ff; }
+        .card h2 { margin-top: 0; color: #00d2ff; font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .metric { font-size: 1.2em; margin: 10px 0; }
+        .metric span { font-weight: bold; color: #fff; }
+        .emergency { border-left-color: #ff3333; animation: pulse 1s infinite alternate; }
+        @keyframes pulse { from { box-shadow: 0 0 10px #ff3333; } to { box-shadow: 0 0 30px #ff3333; } }
+        .alert-status { padding: 5px 10px; border-radius: 5px; font-weight: bold; display: inline-block; margin-left: 10px; }
+        .status-sent { background: #28a745; color: white; }
+        .status-pending { background: #ffc107; color: black; }
+        .status-critical { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1>GuardianDrive Rescue Dashboard</h1>
+    <div class="container">
+        <div class="card" id="status-card">
+            <h2>Vehicle Status</h2>
+            <div class="metric">Driver State: <span id="driver-state">NORMAL</span></div>
+            <div class="metric">Speed: <span id="speed">0</span> km/h</div>
+            <div class="metric">GPS Location: <span id="gps">12.927 N, 80.221 E</span></div>
+        </div>
+
+        <div class="card">
+            <h2>Medical Profile</h2>
+            <div class="metric">Blood Type: <span id="blood-type">O+</span></div>
+            <div class="metric">Allergies: <span id="allergies">Penicillin</span></div>
+        </div>
+
+        <div class="card">
+            <h2>Emergency Communications</h2>
+            <div class="metric">Hospital Alert: <span class="alert-status" id="hospital-alert">Pending</span></div>
+            <div class="metric">Police Alert: <span class="alert-status" id="police-alert">Pending</span></div>
+            <div class="metric">Guardian SMS: <span class="alert-status" id="guardian-alert">Pending</span></div>
+            <div class="metric">V2V Network: <span class="alert-status" id="v2v-alert">Pending</span></div>
+        </div>
+    </div>
+
+    <script>
+        function updateDashboard() {
+            fetch('/api/state')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('driver-state').innerText = data.driver_status;
+                    document.getElementById('speed').innerText = data.speed;
+                    document.getElementById('gps').innerText = data.gps;
+                    
+                    const statusCard = document.getElementById('status-card');
+                    if (data.emergency_active) {
+                        statusCard.classList.add('emergency');
+                        document.getElementById('driver-state').style.color = '#ff3333';
+                    } else {
+                        statusCard.classList.remove('emergency');
+                        document.getElementById('driver-state').style.color = '#00d2ff';
+                    }
+
+                    const updateAlert = (id, status) => {
+                        const el = document.getElementById(id);
+                        el.innerText = status;
+                        el.className = 'alert-status ' + (status === 'Sent' ? 'status-sent' : 'status-pending');
+                    };
+
+                    updateAlert('hospital-alert', data.hospital_alert);
+                    updateAlert('police-alert', data.police_alert);
+                    updateAlert('guardian-alert', data.guardian_alert);
+                    updateAlert('v2v-alert', data.v2v_alert);
+                });
+        }
+        setInterval(updateDashboard, 1000);
+    </script>
+</body>
+</html>
