@@ -3,79 +3,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GuardianDrive Rescue Dashboard</title>
+    <title>Smart Vehicle Emergency Response System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; margin: 0; padding: 20px; }
-        h1 { color: #00d2ff; text-align: center; font-size: 2.5em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; }
-        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: auto; }
-        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid #00d2ff; }
-        .card h2 { margin-top: 0; color: #00d2ff; font-size: 1.5em; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .metric { font-size: 1.2em; margin: 10px 0; }
-        .metric span { font-weight: bold; color: #fff; }
-        .emergency { border-left-color: #ff3333; animation: pulse 1s infinite alternate; }
-        @keyframes pulse { from { box-shadow: 0 0 10px #ff3333; } to { box-shadow: 0 0 30px #ff3333; } }
-        .alert-status { padding: 5px 10px; border-radius: 5px; font-weight: bold; display: inline-block; margin-left: 10px; }
-        .status-sent { background: #28a745; color: white; }
-        .status-pending { background: #ffc107; color: black; }
-        .status-critical { background: #dc3545; color: white; }
+        :root {
+            --bg-dark: #0a0e17;
+            --bg-panel: #111827;
+            --border-color: #1f2937;
+            --text-main: #f3f4f6;
+            --text-dim: #9ca3af;
+            --accent-cyan: #00d2ff;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: linear-gradient(180deg, #111827 0%, transparent 100%);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-title {
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            font-weight: 800;
+        }
+
+        .header-title span {
+            color: var(--accent-cyan);
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        .system-status {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .time-display {
+            font-family: 'Share Tech Mono', monospace;
+            text-align: right;
+            font-size: 1.1rem;
+        }
+
+        .time-display span {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* MAIN GRID */
+        main {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            grid-template-rows: 1fr auto;
+            gap: 15px;
+            padding: 15px;
+            height: calc(100vh - 60px);
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .panel-title {
+            color: var(--accent-cyan);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* LEFT COLUMN */
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .speedometer {
+            text-align: center;
+            padding: 20px 0;
+            position: relative;
+        }
+
+        .speed-val {
+            font-size: 3.5rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        .metric-row span:last-child {
+            color: var(--text-main);
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .ai-control-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+        
+        .ai-control-list li {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: var(--text-dim);
+        }
+
+        .ai-control-list li span.active {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        /* CENTER COLUMN */
+        .center-col {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .camera-feed {
+            flex-grow: 1;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            position: relative;
+            background: #000;
+        }
+
+        .camera-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .object-summary {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background: rgba(17, 24, 39, 0.8);
+            border-radius: 6px;
+        }
+        
+        .obj-item {
+            text-align: center;
+        }
+        .obj-item .val {
+            font-size: 1.5rem;
+            font-family: 'Share Tech Mono', monospace;
+            font-weight: 800;
+            margin-top: 5px;
+        }
+
+        /* RIGHT COLUMN */
+        .right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        .driver-cam {
+            height: 200px;
+            background: #000;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .driver-cam img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status-box {
+            text-align: center;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-top: 10px;
+            background: rgba(17, 24, 39, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .status-box.emergency {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.2) inset;
+        }
+
+        .driver-status-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-green);
+            margin-top: 5px;
+        }
+        
+        .status-box.emergency .driver-status-text {
+            color: var(--accent-red);
+            animation: pulse 1s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { opacity: 1; text-shadow: 0 0 5px var(--accent-red); }
+            to { opacity: 0.6; text-shadow: 0 0 20px var(--accent-red); }
+        }
+
+        .medical-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        /* BOTTOM ROW */
+        .bottom-row {
+            grid-column: 1 / span 3;
+            grid-row: 2;
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1fr;
+            gap: 15px;
+            height: 150px;
+        }
+
+        .comm-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            height: 100%;
+        }
+
+        .comm-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .comm-item span.status {
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+        
+        .comm-item span.status.sent {
+            color: var(--accent-green);
+        }
+        .comm-item span.status.pending {
+            color: var(--accent-yellow);
+        }
+
+        .gps-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
-    <h1>GuardianDrive Rescue Dashboard</h1>
-    <div class="container">
-        <div class="card" id="status-card">
-            <h2>Vehicle Status</h2>
-            <div class="metric">Driver State: <span id="driver-state">NORMAL</span></div>
-            <div class="metric">Speed: <span id="speed">0</span> km/h</div>
-            <div class="metric">GPS Location: <span id="gps">12.927 N, 80.221 E</span></div>
+    <header>
+        <div class="system-status">CARLA Simulator <span style="color:white; margin-left:10px;">CONNECTED</span></div>
+        <div class="header-title">
+            <h1>SMART VEHICLE EMERGENCY RESPONSE SYSTEM</h1>
+            <span>AI Emergency Co-Pilot</span>
+        </div>
+        <div class="time-display" id="clock">
+            14:25:36
+            <span>25 May 2025</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- LEFT COLUMN -->
+        <div class="left-col">
+            <div class="panel">
+                <div class="panel-title">VEHICLE STATUS</div>
+                <div class="speedometer">
+                    <div class="speed-val" id="speed-val">0</div>
+                    <div class="speed-unit">km/h</div>
+                </div>
+                <div class="metric-row"><span>Gear</span><span>D</span></div>
+                <div class="metric-row"><span>Throttle</span><span>Auto</span></div>
+                <div class="metric-row"><span>Brake</span><span>Auto</span></div>
+                <div class="metric-row"><span>Steering</span><span>Auto</span></div>
+            </div>
+
+            <div class="panel" style="flex-grow: 1;">
+                <div class="panel-title">AI VEHICLE CONTROL</div>
+                <div style="color: var(--accent-green); font-size: 0.9rem; margin-bottom: 15px;">&#9673; AUTO MODE</div>
+                <ul class="ai-control-list">
+                    <li><span>Lane Keeping</span> <span class="active">ACTIVE</span></li>
+                    <li><span>Obstacle Avoidance</span> <span class="active">ACTIVE</span></li>
+                    <li><span>Speed Control</span> <span class="active">ACTIVE</span></li>
+                    <li><span>Emergency Stop</span> <span id="em-stop-status">STANDBY</span></li>
+                </ul>
+            </div>
         </div>
 
-        <div class="card">
-            <h2>Medical Profile</h2>
-            <div class="metric">Blood Type: <span id="blood-type">O+</span></div>
-            <div class="metric">Allergies: <span id="allergies">Penicillin</span></div>
+        <!-- CENTER COLUMN -->
+        <div class="center-col">
+            <div class="panel camera-feed" style="padding:0; border:none;">
+                <img src="/video_feed/env" alt="CARLA Environment Stream">
+                <div style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan);">
+                    LIVE FRONT CAMERA + OBJECT DETECTION
+                </div>
+            </div>
+            <div class="panel object-summary">
+                <div class="obj-item">
+                    <div style="color:var(--text-dim); font-size:0.75rem;">GPS LOCATION</div>
+                    <div class="val" id="gps-val" style="font-size: 1rem; color: var(--accent-cyan);">Loading...</div>
+                </div>
+            </div>
         </div>
 
-        <div class="card">
-            <h2>Emergency Communications</h2>
-            <div class="metric">Hospital Alert: <span class="alert-status" id="hospital-alert">Pending</span></div>
-            <div class="metric">Police Alert: <span class="alert-status" id="police-alert">Pending</span></div>
-            <div class="metric">Guardian SMS: <span class="alert-status" id="guardian-alert">Pending</span></div>
-            <div class="metric">V2V Network: <span class="alert-status" id="v2v-alert">Pending</span></div>
+        <!-- RIGHT COLUMN -->
+        <div class="right-col">
+            <div class="panel">
+                <div class="panel-title">DRIVER MONITOR</div>
+                <div class="driver-cam">
+                    <img src="/video_feed/driver" alt="Driver Monitor Stream">
+                </div>
+                
+                <div class="status-box" id="driver-status-box">
+                    <div style="color:var(--text-dim); font-size:0.75rem;">DRIVER STATUS</div>
+                    <div class="driver-status-text" id="driver-state">NORMAL</div>
+                </div>
+            </div>
+
+            <div class="panel" style="flex-grow: 1;">
+                <div class="panel-title">EMERGENCY INFORMATION</div>
+                <div class="medical-info">
+                    <div>
+                        <div style="color:var(--text-dim);">Blood Type</div>
+                        <div id="blood-type">O+</div>
+                    </div>
+                    <div>
+                        <div style="color:var(--text-dim);">Allergies</div>
+                        <div id="allergies">Penicillin</div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+
+        <!-- BOTTOM ROW -->
+        <div class="bottom-row">
+            <div class="panel">
+                <div class="panel-title">SYSTEM ALERTS</div>
+                <div style="font-size: 0.85rem; color: var(--text-dim); line-height: 1.5;" id="alert-logs">
+                    Waiting for events...
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">COMMUNICATION STATUS</div>
+                <div class="comm-grid">
+                    <div class="comm-item">
+                        <span>Hospital</span>
+                        <span class="status" id="hospital-alert">Pending</span>
+                    </div>
+                    <div class="comm-item">
+                        <span>Police</span>
+                        <span class="status" id="police-alert">Pending</span>
+                    </div>
+                    <div class="comm-item">
+                        <span>Guardian SMS</span>
+                        <span class="status" id="guardian-alert">Pending</span>
+                    </div>
+                    <div class="comm-item">
+                        <span>V2V Network</span>
+                        <span class="status" id="v2v-alert">Pending</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">GPS & ROUTE</div>
+                <div class="gps-info">
+                    <div class="metric-row"><span>Destination</span><span>Nearest Hospital</span></div>
+                    <div class="metric-row"><span>Distance</span><span>-- km</span></div>
+                    <div class="metric-row"><span>ETA</span><span>-- min</span></div>
+                </div>
+            </div>
+        </div>
+    </main>
 
     <script>
+        // Update Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerHTML = 
+                now.toLocaleTimeString('en-GB') + 
+                '<span>' + now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + '</span>';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Fetch State
         function updateDashboard() {
             fetch('/api/state')
                 .then(response => response.json())
                 .then(data => {
+                    document.getElementById('speed-val').innerText = data.speed;
+                    document.getElementById('gps-val').innerText = data.gps;
                     document.getElementById('driver-state').innerText = data.driver_status;
-                    document.getElementById('speed').innerText = data.speed;
-                    document.getElementById('gps').innerText = data.gps;
                     
-                    const statusCard = document.getElementById('status-card');
+                    const statusBox = document.getElementById('driver-status-box');
+                    const emStopStatus = document.getElementById('em-stop-status');
+                    const alertLogs = document.getElementById('alert-logs');
+
                     if (data.emergency_active) {
-                        statusCard.classList.add('emergency');
-                        document.getElementById('driver-state').style.color = '#ff3333';
+                        statusBox.classList.add('emergency');
+                        emStopStatus.innerText = 'TRIGGERED';
+                        emStopStatus.style.color = 'var(--accent-red)';
+                        alertLogs.innerHTML = '<span style="color:var(--accent-red)">Driver Unresponsive Detected!</span><br>Executing emergency stopping protocol...<br>Dispatching alerts...';
                     } else {
-                        statusCard.classList.remove('emergency');
-                        document.getElementById('driver-state').style.color = '#00d2ff';
+                        statusBox.classList.remove('emergency');
+                        emStopStatus.innerText = 'STANDBY';
+                        emStopStatus.style.color = 'var(--text-dim)';
+                        if(data.driver_status !== "NORMAL") {
+                             alertLogs.innerHTML = `<span style="color:var(--accent-yellow)">Warning: Driver ${data.driver_status}</span>`;
+                        } else {
+                             alertLogs.innerHTML = 'System Stable. No events.';
+                        }
                     }
 
                     const updateAlert = (id, status) => {
                         const el = document.getElementById(id);
                         el.innerText = status;
-                        el.className = 'alert-status ' + (status === 'Sent' ? 'status-sent' : 'status-pending');
+                        el.className = 'status ' + (status === 'Sent' ? 'sent' : 'pending');
                     };
 
                     updateAlert('hospital-alert', data.hospital_alert);
                     updateAlert('police-alert', data.police_alert);
                     updateAlert('guardian-alert', data.guardian_alert);
                     updateAlert('v2v-alert', data.v2v_alert);
-                });
+                })
+                .catch(err => console.error("Error fetching state:", err));
         }
-        setInterval(updateDashboard, 1000);
+        setInterval(updateDashboard, 500);
     </script>
 </body>
 </html>

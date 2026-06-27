@@ -29,27 +29,90 @@ def process_carla_camera(image):
     vehicle_frame = img.copy()
 
 def render_dashboard_panel(vehicle_state):
-    panel = np.zeros((300, 400, 3), dtype=np.uint8)
+    # Dark modern background (Height 600, Width 400)
+    panel = np.zeros((600, 400, 3), dtype=np.uint8)
+    panel[:] = (15, 15, 20)
     
-    cv2.putText(panel, "SYSTEM DASHBOARD", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 210, 255), 2)
-    cv2.line(panel, (10, 40), (390, 40), (50, 50, 50), 2)
+    font_main = cv2.FONT_HERSHEY_SIMPLEX
     
-    # Status coloring
-    state_color = (0, 255, 0) if vehicle_state["driver_status"] == "NORMAL" else (0, 0, 255)
+    # 1. DRIVER MONITOR METRICS
+    cv2.putText(panel, "DRIVER MONITOR METRICS", (20, 30), font_main, 0.6, (255, 210, 0), 1)
+    cv2.line(panel, (20, 40), (380, 40), (50, 50, 50), 1)
     
-    cv2.putText(panel, f"Driver: {vehicle_state['driver_status']}", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, state_color, 2)
-    cv2.putText(panel, f"Speed: {vehicle_state['speed']} km/h", (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-    cv2.putText(panel, f"GPS: {vehicle_state['gps']}", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+    stats = vehicle_state.get('driver_stats', {})
+    ear = stats.get('ear', 0)
+    mar = stats.get('mar', 0)
+    blinks = stats.get('blinks', 0)
+    yawns = stats.get('yawns', 0)
+    head = stats.get('head_pose', 'Forward')
     
-    cv2.putText(panel, "EMERGENCY ALERTS", (10, 170), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 150, 255), 1)
+    cv2.putText(panel, f"EAR         {ear:.2f}", (30, 70), font_main, 0.55, (200, 200, 200), 1)
+    cv2.putText(panel, f"MAR         {mar:.2f}", (30, 100), font_main, 0.55, (200, 200, 200), 1)
+    cv2.putText(panel, f"Blink Count {blinks}", (30, 130), font_main, 0.55, (200, 200, 200), 1)
+    cv2.putText(panel, f"Yawn Count  {yawns}", (30, 160), font_main, 0.55, (200, 200, 200), 1)
     
-    alert_y = 200
-    for key, label in [("hospital_alert", "Hospital"), ("police_alert", "Police"), ("guardian_alert", "Guardian"), ("v2v_alert", "V2V Comm")]:
+    cv2.putText(panel, "Head Pose", (240, 70), font_main, 0.5, (150, 150, 150), 1)
+    head_color = (0, 255, 0) if head == "Forward" else (0, 150, 255)
+    cv2.putText(panel, head, (240, 95), font_main, 0.55, head_color, 1)
+
+    # 2. DRIVER STATUS BANNER
+    driver_state = vehicle_state.get("driver_status", "NORMAL")
+    if driver_state in ["NORMAL"]:
+        box_color = (15, 30, 15)
+        text_color = (0, 255, 0)
+    elif driver_state in ["UNRESPONSIVE", "CRITICAL ALERT", "DROWSY"]:
+        box_color = (0, 0, 80)
+        text_color = (0, 0, 255)
+    else:
+        box_color = (0, 50, 80)
+        text_color = (0, 165, 255)
+        
+    cv2.rectangle(panel, (20, 200), (380, 280), box_color, -1)
+    cv2.rectangle(panel, (20, 200), (380, 280), (50, 50, 50), 1)
+    cv2.putText(panel, "DRIVER STATUS", (140, 225), font_main, 0.45, (150, 150, 150), 1)
+    
+    text_size = cv2.getTextSize(driver_state, font_main, 1.0, 2)[0]
+    tx = 200 - (text_size[0] // 2)
+    cv2.putText(panel, driver_state, (tx, 260), font_main, 1.0, text_color, 2)
+    
+    # 3. FATIGUE LEVEL GAUGE
+    cv2.putText(panel, "FATIGUE LEVEL", (20, 310), font_main, 0.5, (255, 50, 50), 1)
+    fatigue = stats.get('fatigue', 0)
+    fatigue_pct = min(100, int((fatigue / 100.0) * 100))
+    
+    center = (70, 360)
+    radius = 35
+    cv2.circle(panel, center, radius, (40, 40, 40), 4)
+    end_angle = int(360 * (fatigue_pct / 100.0))
+    if end_angle > 0:
+        cv2.ellipse(panel, center, (radius, radius), -90, 0, end_angle, (0, 0, 255), 4)
+    
+    pct_str = f"{fatigue_pct}%"
+    p_size = cv2.getTextSize(pct_str, font_main, 0.5, 1)[0]
+    cv2.putText(panel, pct_str, (70 - p_size[0]//2, 365), font_main, 0.5, (200,200,200), 1)
+    
+    pts = []
+    base_y = 360
+    for i in range(120, 380, 10):
+        y_offset = int(np.sin(i*0.2 + time.time()*10) * 15 * (1 if i%30==0 else 0.2))
+        pts.append([i, base_y + y_offset])
+    cv2.polylines(panel, [np.array(pts, np.int32)], False, (0, 0, 200), 1)
+
+    # 4. EMERGENCY INFO & GPS
+    cv2.putText(panel, "EMERGENCY ACTIONS", (20, 430), font_main, 0.55, (255, 210, 0), 1)
+    cv2.line(panel, (20, 440), (380, 440), (50, 50, 50), 1)
+    
+    alert_y = 470
+    for key, label in [("hospital_alert", "Hospital Alert"), ("police_alert", "Police Alert"), ("guardian_alert", "Guardian SMS")]:
         status = vehicle_state.get(key, "Pending")
-        color = (0, 255, 0) if status == "Sent" else (0, 150, 255)
-        cv2.putText(panel, f"{label}: {status}", (10, alert_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        color = (0, 255, 0) if status == "Sent" else (100, 100, 100)
+        cv2.circle(panel, (30, alert_y-4), 6, color, -1 if status == "Sent" else 1)
+        cv2.putText(panel, label, (45, alert_y), font_main, 0.5, (200,200,200), 1)
         alert_y += 25
         
+    cv2.putText(panel, "GPS", (220, 470), font_main, 0.45, (150,150,150), 1)
+    cv2.putText(panel, vehicle_state.get('gps', 'Loading...'), (220, 495), font_main, 0.45, (255,255,255), 1)
+    
     return panel
 
 def main():
@@ -180,14 +243,15 @@ def main():
             driver_frame_disp = np.zeros((300, 400, 3), dtype=np.uint8)
             if webcam_success:
                 webcam_frame = cv2.flip(webcam_frame, 1)
-                driver_frame, driver_state = driver_monitor.process_frame(webcam_frame)
+                driver_frame, driver_state, driver_stats = driver_monitor.process_frame(webcam_frame)
                 vehicle_state["driver_status"] = driver_state
+                vehicle_state["driver_stats"] = driver_stats
                 emergency_manager.evaluate_driver_state(driver_state)
                 driver_frame_disp = cv2.resize(driver_frame, (400, 300))
             
             # --- PROCESS CARLA CAMERA (YOLO ENVIRONMENT) ---
             global vehicle_frame
-            env_frame_disp = np.zeros((600, 800, 3), dtype=np.uint8)
+            env_frame_disp = np.zeros((900, 1200, 3), dtype=np.uint8)
             if vehicle_frame is not None:
                 if yolo_detector:
                     env_frame, detected = yolo_detector.process_frame(vehicle_frame, vehicle_state.get("emergency_active", False))
@@ -199,14 +263,22 @@ def main():
                 h, w, _ = env_frame.shape
                 cv2.putText(env_frame, f"Speed: {int(speed)} km/h", (w - 200, 40), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-                env_frame_disp = cv2.resize(env_frame, (800, 600))
+                env_frame_disp = cv2.resize(env_frame, (1200, 900))
                             
+            # --- PUSH FRAMES TO WEB DASHBOARD ---
+            import future.dashboard
+            future.dashboard.latest_driver_frame = driver_frame_disp
+            future.dashboard.latest_env_frame = env_frame_disp
+
             # --- RENDER UNIFIED CENTRAL CONSOLE ---
             dash_panel = render_dashboard_panel(vehicle_state)
             right_col = np.vstack((driver_frame_disp, dash_panel))
             final_ui = np.hstack((env_frame_disp, right_col))
             
-            cv2.imshow("GuardianDrive Central Console", final_ui)
+            # Show the newly enhanced massive UI
+            # Resize it to 1280x720 to ensure it fits perfectly on all laptop screens without clipping
+            final_ui_resized = cv2.resize(final_ui, (1280, 720))
+            cv2.imshow("GuardianDrive Enhanced Pro Dashboard", final_ui_resized)
 
             key = cv2.waitKey(1) & 0xFF
             

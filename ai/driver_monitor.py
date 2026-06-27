@@ -130,13 +130,13 @@ class DriverMonitor:
         y = angles[1] * 360
         
         # Determine Head Pose
-        if y < -10:
+        if y < -15:
             pose = "Looking Left"
-        elif y > 10:
+        elif y > 15:
             pose = "Looking Right"
-        elif x < -10:
+        elif x < -15:
             pose = "Looking Down"
-        elif x > 15:
+        elif x > 25:
             pose = "Looking Up"
         else:
             pose = "Forward"
@@ -185,7 +185,7 @@ class DriverMonitor:
                 if not self.yawn_active:
                     self.yawn_active = True
                     self.yawn_counter += 1
-                    self.fatigue_score += 10 # Increase fatigue score
+                    self.fatigue_score = min(100, self.fatigue_score + 10) # Increase fatigue score
             else:
                 self.yawn_active = False
 
@@ -214,7 +214,7 @@ class DriverMonitor:
                 elif closed_duration < 5:
                     self.driver_state = "WARNING"
                     color = (0, 140, 255)
-                    self.fatigue_score += 5
+                    self.fatigue_score = min(100, self.fatigue_score + 5)
                 elif closed_duration < 7:
                     self.driver_state = "CRITICAL ALERT"
                     color = (0, 50, 255)
@@ -232,16 +232,18 @@ class DriverMonitor:
                 if distracted_duration > 3:
                     self.driver_state = "DISTRACTED"
                     color = (0, 165, 255)
-                    self.fatigue_score += 2
-                elif self.fatigue_score > 50:
-                    self.driver_state = "DROWSY"
-                    color = (0, 140, 255)
+                    self.fatigue_score = min(100, self.fatigue_score + 2)
                 else:
-                    self.driver_state = "NORMAL"
-                    color = (0, 255, 0)
-                    # Slowly decrease fatigue score when normal
+                    # Slowly decrease fatigue score when not distracted/eyes closed
                     if self.fatigue_score > 0:
-                        self.fatigue_score -= 0.1
+                        self.fatigue_score = max(0, self.fatigue_score - 2)
+                    
+                    if self.fatigue_score > 50:
+                        self.driver_state = "DROWSY"
+                        color = (0, 140, 255)
+                    else:
+                        self.driver_state = "NORMAL"
+                        color = (0, 255, 0)
 
             # --- HUD Overlay ---
             metrics = [
@@ -265,8 +267,18 @@ class DriverMonitor:
         else:
             self.driver_state = "NO FACE DETECTED"
             cv2.putText(frame, self.driver_state, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+            smoothed_ear = 0
+            mar = 0
 
-        return frame, self.driver_state
+        stats = {
+            "ear": smoothed_ear if 'smoothed_ear' in locals() else 0,
+            "mar": mar if 'mar' in locals() else 0,
+            "blinks": self.blink_counter,
+            "yawns": self.yawn_counter,
+            "head_pose": self.head_pose_status,
+            "fatigue": self.fatigue_score
+        }
+        return frame, self.driver_state, stats
 
     # This method allows standalone testing with a webcam
     def run_standalone(self):
@@ -280,7 +292,7 @@ class DriverMonitor:
                 continue
 
             frame = cv2.flip(frame, 1)
-            processed_frame, state = self.process_frame(frame)
+            processed_frame, state, stats = self.process_frame(frame)
             
             cv2.imshow('Driver Monitor', processed_frame)
             if cv2.waitKey(5) & 0xFF == 27: # ESC key

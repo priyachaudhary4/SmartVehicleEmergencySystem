@@ -34,9 +34,28 @@ class EmergencyManager:
             print("[DECISION ENGINE] CRITICAL: Driver Unresponsive Detected!")
             self.execute_emergency_protocol()
             
-        elif driver_state == "NORMAL" and self.emergency_handled:
-            # Optionally reset if driver wakes up before final stop
-            pass
+        elif driver_state == "DROWSY" and not getattr(self, 'drowsy_warned', False):
+            print("[DECISION ENGINE] WARNING: Driver is drowsy!")
+            self.drowsy_warned = True # Prevent spamming
+            
+            def warn_driver():
+                # Short warning beeps
+                winsound.Beep(800, 300)
+                winsound.Beep(800, 300)
+                if self.tts_engine:
+                    self.tts_engine.say("Warning! You appear drowsy. Please stay alert and focus on the road.")
+                    self.tts_engine.runAndWait()
+            
+            # Run warning in background
+            threading.Thread(target=warn_driver, daemon=True).start()
+            
+        elif driver_state == "NORMAL":
+            # Reset the drowsy warning flag so it can trigger again if they get drowsy later
+            self.drowsy_warned = False
+            
+            if self.emergency_handled:
+                # Optionally reset if driver wakes up before final stop
+                pass
 
     def execute_emergency_protocol(self):
         """
