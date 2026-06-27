@@ -1,5 +1,4 @@
 yolo_env/
-yolov8n.pt
 __pycache__/
 *.pyc
 .env
