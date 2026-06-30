@@ -25,13 +25,13 @@ class VehicleController:
         speed = 3.6 * math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
         return speed
 
-    def normal_drive(self):
+    def normal_drive(self, tm_port=8000):
         """
         Simulates normal autonomous driving (maintaining a steady speed).
         """
         if not self.emergency_mode_active:
             # Enable CARLA's built-in autopilot so it navigates the city naturally
-            self.vehicle.set_autopilot(True)
+            self.vehicle.set_autopilot(True, tm_port)
 
     def trigger_hazard_lights(self):
         """

@@ -34,16 +34,20 @@ class YoloDetector:
         if frame is None:
             return None, {}
 
-        # Run inference
-        results = self.model(frame, classes=self.target_classes, verbose=False)
+        # Run inference (lower confidence and higher image size to detect small distant traffic lights)
+        results = self.model(frame, conf=0.15, imgsz=800, classes=self.target_classes, verbose=False)
         
         # Extract annotated frame
-        annotated_frame = results[0].plot()
+        annotated_frame = results[0].plot(conf=True, line_width=1, font_size=1)
 
         # Extract counts of detected objects
         detected_summary = {
             "person": 0,
-            "vehicle": 0,
+            "bicycle": 0,
+            "car": 0,
+            "motorcycle": 0,
+            "bus": 0,
+            "truck": 0,
             "traffic_light": 0,
             "stop_sign": 0
         }
@@ -54,20 +58,30 @@ class YoloDetector:
             
             if cls_id == 0:
                 detected_summary["person"] += 1
-            elif cls_id in [1, 2, 3, 5, 7]:
-                detected_summary["vehicle"] += 1
-                if emergency_active:
-                    x1, y1, x2, y2 = box.xyxy[0]
-                    cv2.putText(annotated_frame, "V2V ALERT RECEIVED", (int(x1), max(0, int(y1)-15)), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            elif cls_id == 1:
+                detected_summary["bicycle"] += 1
+            elif cls_id == 2:
+                detected_summary["car"] += 1
+            elif cls_id == 3:
+                detected_summary["motorcycle"] += 1
+            elif cls_id == 5:
+                detected_summary["bus"] += 1
+            elif cls_id == 7:
+                detected_summary["truck"] += 1
             elif cls_id == 9:
                 detected_summary["traffic_light"] += 1
             elif cls_id == 11:
                 detected_summary["stop_sign"] += 1
+                
+            if cls_id in [1, 2, 3, 5, 7] and emergency_active:
+                x1, y1, x2, y2 = box.xyxy[0]
+                cv2.putText(annotated_frame, "V2V ALERT RECEIVED", (int(x1), max(0, int(y1)-15)), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
         # Add an overlay for detected counts
         h, w, _ = annotated_frame.shape
-        overlay_text = f"Vehicles: {detected_summary['vehicle']} | Pedestrians: {detected_summary['person']} | Lights: {detected_summary['traffic_light']}"
+        vehicle_count = detected_summary["car"] + detected_summary["truck"] + detected_summary["bus"] + detected_summary["motorcycle"]
+        overlay_text = f"Vehicles: {vehicle_count} | Pedestrians: {detected_summary['person']} | Lights: {detected_summary['traffic_light']}"
         cv2.putText(annotated_frame, overlay_text, (20, h - 30), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 

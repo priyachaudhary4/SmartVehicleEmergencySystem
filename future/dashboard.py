@@ -1,7 +1,9 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, Response
 import threading
 import logging
 import os
+import cv2
+import time
 
 # Create template folder if not exists
 template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
@@ -24,6 +26,30 @@ vehicle_state = {
     "v2v_alert": "Pending"
 }
 
+# Global frames for streaming
+latest_env_frame = None
+latest_driver_frame = None
+
+def generate_frames(frame_type):
+    global latest_env_frame, latest_driver_frame
+    while True:
+        if frame_type == 'env' and latest_env_frame is not None:
+            frame = latest_env_frame
+        elif frame_type == 'driver' and latest_driver_frame is not None:
+            frame = latest_driver_frame
+        else:
+            time.sleep(0.05)
+            continue
+            
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
+            
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        time.sleep(0.03)
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -31,6 +57,14 @@ def index():
 @app.route('/api/state')
 def get_state():
     return jsonify(vehicle_state)
+
+@app.route('/video_feed/env')
+def video_feed_env():
+    return Response(generate_frames('env'), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/video_feed/driver')
+def video_feed_driver():
+    return Response(generate_frames('driver'), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 def start_dashboard():
     log = logging.getLogger('werkzeug')
