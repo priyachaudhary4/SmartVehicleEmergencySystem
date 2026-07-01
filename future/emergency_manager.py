@@ -20,6 +20,10 @@ class EmergencyManager:
         
         # Initialize text to speech engine flag (initialized per thread for Windows COM compatibility)
         self.tts_enabled = True
+        
+        # Counters and timers for progressive warnings
+        self.critical_warning_count = 0
+        self.last_critical_warning_time = 0
 
     def evaluate_driver_state(self, driver_state):
         """
@@ -30,21 +34,43 @@ class EmergencyManager:
         critical_states = ["UNRESPONSIVE", "FAINTED", "DROWSY"]
         
         if driver_state in critical_states and not self.emergency_handled:
-            print(f"[DECISION ENGINE] CRITICAL: Driver {driver_state} Detected! AI taking over control.")
-            
-            if self.tts_enabled:
-                def speak_critical():
-                    try:
-                        import pyttsx3
-                        engine = pyttsx3.init()
-                        engine.setProperty('rate', 150)
-                        engine.say(f"Warning. Driver {driver_state} detected. AI taking over vehicle control to ensure safety.")
-                        engine.runAndWait()
-                    except Exception as e:
-                        print("TTS Error:", e)
-                threading.Thread(target=speak_critical, daemon=True).start()
-                
-            self.execute_emergency_protocol()
+            current_time = time.time()
+            if self.critical_warning_count < 3:
+                # Wait 2 seconds between warnings
+                if current_time - self.last_critical_warning_time > 2.0:
+                    self.critical_warning_count += 1
+                    self.last_critical_warning_time = current_time
+                    print(f"[DECISION ENGINE] WARNING {self.critical_warning_count}/3: Driver {driver_state} detected! Asking driver...")
+                    
+                    if self.tts_enabled:
+                        def ask_driver():
+                            try:
+                                import pyttsx3
+                                engine = pyttsx3.init()
+                                engine.setProperty('rate', 150)
+                                engine.say("Are you conscious? Are you good? Are you in control?")
+                                engine.runAndWait()
+                            except Exception as e:
+                                print("TTS Error:", e)
+                        threading.Thread(target=ask_driver, daemon=True).start()
+            else:
+                # Wait 2 seconds after the 3rd warning before taking over
+                if current_time - self.last_critical_warning_time > 2.0:
+                    print(f"[DECISION ENGINE] CRITICAL: Driver {driver_state} Detected! AI taking over control.")
+                    
+                    if self.tts_enabled:
+                        def speak_critical():
+                            try:
+                                import pyttsx3
+                                engine = pyttsx3.init()
+                                engine.setProperty('rate', 150)
+                                engine.say("Driver unconscious emergency. Emergency. AI taking over vehicle control to ensure safety.")
+                                engine.runAndWait()
+                            except Exception as e:
+                                print("TTS Error:", e)
+                        threading.Thread(target=speak_critical, daemon=True).start()
+                        
+                    self.execute_emergency_protocol()
             
         elif "WARNING" in driver_state or driver_state == "DISTRACTED":
             if not getattr(self, "warning_played", False):
@@ -63,6 +89,8 @@ class EmergencyManager:
                     threading.Thread(target=speak_warning, daemon=True).start()
 
         elif driver_state == "NORMAL" or driver_state == "ATTENTIVE":
+            self.critical_warning_count = 0
+            self.last_critical_warning_time = 0
             self.drowsy_warned = False
             self.warning_played = False
             

@@ -59,23 +59,29 @@ class VehicleController:
             current_speed = self.get_speed()
             
             # Progressive braking logic matching storyboard (80 -> 60 -> 40 -> 20 -> 0)
+            # Add slight right steering to pull over to the side of the road
             if current_speed > 60.0:
                 brake_amt = 0.2
+                steer_amt = 0.01
             elif current_speed > 40.0:
                 brake_amt = 0.4
+                steer_amt = 0.02
             elif current_speed > 20.0:
                 brake_amt = 0.6
+                steer_amt = 0.02
             elif current_speed > 5.0:
                 brake_amt = 0.8
+                steer_amt = 0.0
             else:
                 brake_amt = 1.0
+                steer_amt = 0.0
                 
-            print(f"[VEHICLE CONTROL] Speed: {int(current_speed)} km/h | Brake: {int(brake_amt*100)}%")
+            print(f"[VEHICLE CONTROL] Speed: {int(current_speed)} km/h | Brake: {int(brake_amt*100)}% | Steer: {steer_amt}")
                 
-            # Apply progressive braking and keep steering straight (lane keep)
+            # Apply progressive braking and steer slightly to the right to pull over
             control = carla.VehicleControl(
                 throttle=0.0,
-                steer=0.0,  
+                steer=steer_amt,  
                 brake=brake_amt
             )
             self.vehicle.apply_control(control)

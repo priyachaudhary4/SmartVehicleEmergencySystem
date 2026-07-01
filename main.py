@@ -81,6 +81,27 @@ def draw_glowing_text(img, text, pos, font, scale, color, thickness=1):
     cv2.putText(img, text, (x+1, y+1), font, scale, (10, 10, 10), thickness, cv2.LINE_AA)
     cv2.putText(img, text, pos, font, scale, color, thickness, cv2.LINE_AA)
 
+def draw_brain_head_icon(img, pos, size, color, thickness=1):
+    cx, cy = pos
+    cr = int(size * 0.45)
+    cv2.ellipse(img, (cx, cy - int(size*0.1)), (cr, cr), 0, 120, 420, color, thickness, cv2.LINE_AA)
+    pts = np.array([
+        [cx + int(cr * 0.5), cy - int(size*0.1) + int(cr * 0.866)],
+        [cx + int(size * 0.4), cy], 
+        [cx + int(size * 0.25), cy + int(size * 0.1)], 
+        [cx + int(size * 0.35), cy + int(size * 0.15)], 
+        [cx + int(size * 0.3), cy + int(size * 0.25)], 
+        [cx + int(size * 0.1), cy + int(size * 0.4)], 
+        [cx - int(size * 0.25), cy + int(size * 0.4)], 
+        [cx - int(cr * 0.5), cy - int(size*0.1) + int(cr * 0.866)]
+    ], np.int32)
+    cv2.polylines(img, [pts], False, color, thickness, cv2.LINE_AA)
+    bx, by, br = cx - int(size * 0.05), cy - int(size * 0.15), int(size * 0.25)
+    cv2.circle(img, (bx, by), br, color, thickness, cv2.LINE_AA)
+    cv2.ellipse(img, (bx, by), (br - 3, int(br * 0.5)), 0, 0, 180, color, thickness, cv2.LINE_AA)
+    cv2.ellipse(img, (bx, by), (int(br * 0.4), br - 3), 0, 90, 270, color, thickness, cv2.LINE_AA)
+    cv2.circle(img, (bx - int(br * 0.3), by + int(br * 0.8)), int(br * 0.3), color, thickness, cv2.LINE_AA)
+
 def render_dashboard_panel(vehicle_state, driver_frame):
     # Total right column height 900, width 400
     panel = np.zeros((900, 400, 3), dtype=np.uint8)
@@ -172,10 +193,15 @@ def render_dashboard_panel(vehicle_state, driver_frame):
     
     bg_col_ds = (0, 78, 107) # Amber Gold
     draw_rounded_glass_panel(panel, (15, y1), (385, y2), bg_col_ds, state_col)
-    draw_glowing_text(panel, "DRIVER STATUS", (145, y1 + 25), font_bold, 0.45, c_cyan, 1)
+    
+    # Draw Brain/Head icon on the left
+    draw_brain_head_icon(panel, (75, y1 + 35), size=60, color=state_col, thickness=2)
+    
+    # Shift text to the right to accommodate the icon
+    draw_glowing_text(panel, "DRIVER STATUS", (160, y1 + 25), font_bold, 0.45, c_cyan, 1)
     
     ts = cv2.getTextSize(driver_state_str, font_bold, 1.0, 2)[0]
-    tx = 200 - (ts[0] // 2)
+    tx = 255 - (ts[0] // 2) # Center it in the right half
     draw_glowing_text(panel, driver_state_str, (tx, y1 + 55), font_bold, 1.0, state_col, 2)
     
     # Autonomous Takeover Status
@@ -731,7 +757,7 @@ def main():
     # Configure Traffic Manager to keep vehicle driving straight and safely
     tm = client.get_trafficmanager(8000)
     tm.auto_lane_change(vehicle, False)
-    tm.vehicle_percentage_speed_difference(vehicle, 30.0) # Drive 30% slower than speed limit for safety
+    tm.vehicle_percentage_speed_difference(vehicle, 0.0) # Drive at 100% of speed limit (approx 30 km/h)
     tm.distance_to_leading_vehicle(vehicle, 8.0) # Maintain 8m distance
     tm.ignore_lights_percentage(vehicle, 0.0) # Strictly follow traffic lights
     tm.ignore_signs_percentage(vehicle, 0.0)  # Strictly follow stop signs
@@ -773,10 +799,20 @@ def main():
     # 6. Main Simulation Loop
     # -----------------------------
     autopilot_enabled = True
+    
+    # --- ENABLE SYNCHRONOUS MODE ---
+    settings = world.get_settings()
+    settings.synchronous_mode = True
+    settings.fixed_delta_seconds = 0.05
+    world.apply_settings(settings)
+    
+    tm = client.get_trafficmanager(8000)
+    tm.set_synchronous_mode(True)
+    
     try:
         while True:
             # Sync with CARLA world
-            world.wait_for_tick()
+            world.tick()
 
             # --- PROCESS WEBCAM (DRIVER MONITOR) ---
             webcam_success, webcam_frame = webcam.read()
@@ -930,6 +966,9 @@ def main():
         
     finally:
         print("\n[SYSTEM] Cleaning up resources...")
+        settings = world.get_settings()
+        settings.synchronous_mode = False
+        world.apply_settings(settings)
         webcam.release()
         camera.stop()
         camera.destroy()

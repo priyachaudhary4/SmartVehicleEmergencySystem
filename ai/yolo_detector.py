@@ -34,8 +34,8 @@ class YoloDetector:
         if frame is None:
             return None, {}
 
-        # Run inference (lower confidence and higher image size to detect small distant traffic lights)
-        results = self.model(frame, conf=0.15, imgsz=800, classes=self.target_classes, verbose=False)
+        # Run inference (lower confidence to detect small distant traffic lights in CARLA)
+        results = self.model(frame, conf=0.05, imgsz=800, classes=self.target_classes, verbose=False)
         
         # Extract annotated frame
         annotated_frame = results[0].plot(conf=True, line_width=1, font_size=1)
